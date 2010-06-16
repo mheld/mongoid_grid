@@ -102,14 +102,22 @@ module Mongoid
       ##
       # Attachments we need to add after save.
       def create_attachment(name,file)
+        is_file = file.kind_of? File
+        
         if file.respond_to?(:read)
-          filename = file.respond_to?(:original_filename) ? 
-                     file.original_filename : File.basename(file.path)
+          if file.respond_to?(:original_filename)
+            filename = file.original_filename
+          elsif is_file
+            filename = File.basename(file.path)
+          else
+            #should be a StringIO at this point, made by open-uri, meaning it's too small to be a real file
+            filename = "short-#{(1000 * Time.now.utc.to_f).to_i}"
+          end
           type = MIME::Types.type_for(filename).first
           mime = type ? type.content_type : "application/octet-stream" 
           send("#{name}_id=",   BSON::ObjectID.new)
           send("#{name}_name=", filename)
-          send("#{name}_size=", File.size(file))
+          send("#{name}_size=", is_file ? File.size(file) : file.size)
           send("#{name}_type=", mime)
           create_attachment_queue[name] = file
         end
